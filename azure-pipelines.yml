@@ -2,9 +2,7 @@ trigger:
 - main
 
 pool:
-  name: Default   # Use your self-hosted agent pool name
-  demands:
-  - agent.name -equals myAgent  # Optional: ensures it runs on your specific VM
+  name: Default   # Self-hosted agent pool name
 
 variables:
   solution: '**/*.sln'
@@ -36,3 +34,8 @@ steps:
     archiveFilePatterns: '$(Build.ArtifactStagingDirectory)\WebApp.zip'
     destinationFolder: 'C:\inetpub\MyApp'
     cleanDestinationFolder: true
+
+# Optional: Restart IIS after deployment
+- powershell: |
+    iisreset
+  displayName: 'Restart IIS'
