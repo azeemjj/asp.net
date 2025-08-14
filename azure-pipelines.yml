@@ -2,40 +2,51 @@ trigger:
 - main
 
 pool:
-  name: Default   # Self-hosted agent pool name
+  name: Default  # Your self-hosted agent pool name
 
 variables:
-  solution: '**/*.sln'
-  buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
 
 steps:
-- task: NuGetToolInstaller@1
-
-- task: NuGetCommand@2
+# Install the required .NET SDK (update version as per your project)
+- task: UseDotNet@2
   inputs:
-    restoreSolution: '$(solution)'
+    packageType: 'sdk'
+    version: '6.0.x'  # Change to 7.0.x, 8.0.x, etc., depending on your project
+    installationPath: $(Agent.ToolsDirectory)/dotnet
 
-- task: VSBuild@1
+# Restore NuGet packages
+- task: DotNetCoreCLI@2
   inputs:
-    solution: '$(solution)'
-    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="$(Build.ArtifactStagingDirectory)\WebApp.zip" /p:DeployIisAppPath="Default Web Site"'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+    command: 'restore'
+    projects: '**/*.csproj'
 
-- task: VSTest@2
+# Build the project
+- task: DotNetCoreCLI@2
   inputs:
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+    command: 'build'
+    projects: '**/*.csproj'
+    arguments: '--configuration $(buildConfiguration)'
 
-# Extract and copy to IIS folder
-- task: ExtractFiles@1
+# Run tests (if any)
+- task: DotNetCoreCLI@2
   inputs:
-    archiveFilePatterns: '$(Build.ArtifactStagingDirectory)\WebApp.zip'
-    destinationFolder: 'C:\inetpub\MyApp'
-    cleanDestinationFolder: true
+    command: 'test'
+    projects: '**/*Tests.csproj'
+    arguments: '--configuration $(buildConfiguration) --no-build'
+    publishTestResults: true
 
-# Optional: Restart IIS after deployment
-- powershell: |
-    iisreset
-  displayName: 'Restart IIS'
+# Publish build output to a zip file for deployment
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'publish'
+    publishWebProjects: true
+    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+    zipAfterPublish: true
+
+# Publish artifact for deployment
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
